@@ -1,15 +1,30 @@
-{% extends 'base.html' %}
-{% block content %}
+{% extends 'base.html' %} {% block content %}
 <div
   id="container"
   class="d-flex flex-column justify-content-between align-items-center mt-3"
 >
-  <!-- Removed commented-out animation code for readability -->
+  <!-- <script
+    src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs"
+    type="module"
+  ></script>
 
-  <div id="typewriter" class="me-4 ms-4 mt-5" style="font-size: 40px; color: #ffffff"></div>
-  
+  <dotlottie-player
+    src="https://lottie.host/90de0813-f236-4de1-bb4e-9d32f2652c22/CeRKBH0PSO.json"
+    background="transparent"
+    speed="1"
+    style="width: 300px; height: 300px"
+    loop
+    autoplay
+  ></dotlottie-player> -->
+
+  <div
+    id="typewriter"
+    class="me-4 ms-4 mt-5"
+    style="font-size: 40px; color: #ffffff"
+  ></div>
   <!-- Robot Animation -->
   <div class="robot-animation justify-content-center">
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <lottie-player
       id="lottiePlayer"
       src="https://lottie.host/7223d248-bdb2-492e-951f-565c6301be9b/x3YBLonBH0.json"
@@ -17,9 +32,10 @@
       style="width: 500px; height: 500px"
       loop
       autoplay
+      direction="1"
+      mode="normal"
     ></lottie-player>
   </div>
-  
   <div id="loading" style="display: none; height: 100%; text-align: center">
     <div class="loading-spinner"></div>
     <p>Processing your input...</p>
@@ -38,14 +54,27 @@
       autocomplete="off"
       class="form-control form-control-lg input-box"
       required
-      style="font-size: 24px; width: 500px; height: 50px; border-radius: 20px; padding: 10px;"
+      style="
+        font-size: 24px;
+        width: 500px;
+        height: 50px;
+        border-radius: 20px;
+        transition: height 0.3s;
+        padding: 10px;
+      "
     />
     <button
       type="submit"
       id="send"
       class="btn btn-primary rounded-circle ms-2"
       title="Send Message"
-      style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;"
+      style="
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      "
     >
       <i class="fas fa-paper-plane fa-lg"></i>
     </button>
@@ -54,7 +83,13 @@
       id="mic"
       class="btn btn-danger rounded-circle ms-2"
       title="Voice Input"
-      style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;"
+      style="
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      "
     >
       <i class="fas fa-microphone text-white fa-lg"></i>
     </button>
@@ -65,7 +100,8 @@
 <script>
   const typewriterElement = document.getElementById("typewriter");
   const micButton = document.getElementById("mic");
-
+  // let recognizing = false;
+  // let recognition;
   function typeWriter(text, element, callback) {
     let responseIndex = 0;
     element.innerHTML = ""; // Clear the element before typing new response
@@ -81,90 +117,200 @@
     writeResponse();
   }
 
-  let exhibitAudio;
+  window.onload = function () {
+    typeWriter("How can I help you?", document.getElementById("typewriter"));
+  };
 
-  function playExhibitAudio() {
-    exhibitAudio = new Audio(`{{ url_for('static', filename='audio/exhibit.wav') }}`);
-    exhibitAudio.play();
-    document.querySelectorAll("#normal-button").forEach((button) => {
-      button.addEventListener("click", () => exhibitAudio.pause());
-    });
-    exhibitAudio.onended = playQuestionPromptAudio;
-  }
+  // Voice input
+  $("#mic").on("click", function () {
+    micButton.style.backgroundColor = "#fe1506"; // Add active class for styling
 
-  function playQuestionPromptAudio() {
-    const questionAudio = new Audio(`{{ url_for('static', filename='audio/question_audio.wav') }}`);
-    questionAudio.play();
-    questionAudio.onended = detectWakeWord;
-  }
-
-  function detectWakeWord() {
-    fetch("/detect_wake_word", { method: "POST" })
+    fetch("/stt")
       .then((response) => response.json())
       .then((data) => {
-        if (data.action === "stt") {
-          $("#text").val(data.text);
-          $("#messageArea").submit();
+        lottiePlayer.style.display = "none"; // Hide the Lottie player
+
+        micButton.style.backgroundColor = ""; // Add active class for styling
+
+        if (data.text) {
+          $("#text").val(data.text); // Populate the input field with transcribed text
+          $("#messageArea").submit(); // Automatically submit the form
         }
       })
-      .catch((error) => console.error("Error during voice recognition:", error));
-  }
+      .catch((error) => {
+        console.error("Error during voice recognition:", error);
+        $("#loading").hide(); // Hide loading indicator in case of error
+      });
+  });
+  // if ("webkitSpeechRecognition" in window) {
+  //   recognition = new webkitSpeechRecognition();
+  //   recognition.continuous = false;
+  //   recognition.interimResults = false;
 
-  $(document).ready(function () {
-    typeWriter("How can I help you?", typewriterElement);
-    playExhibitAudio();
+  //   recognition.onstart = function () {
+  //     recognizing = true;
+  //     micButton.style.backgroundColor = "#fe1506"; // Add active class for styling
+  //   };
 
-    $("#mic").on("click", function () {
-      fetch("/stt")
-        .then((response) => response.json())
-        .then((data) => {
-          $("#text").val(data.text);
-          $("#messageArea").submit();
-        })
-        .catch((error) => console.error("Error during voice recognition:", error));
-    });
+  //   recognition.onresult = function (event) {
+  //     const userMessage = event.results[0][0].transcript;
+  //     $("#text").val(userMessage); // Set the input field with the recognized text
+  //   };
 
-    $("#messageArea").on("submit", function (event) {
-      event.preventDefault();
-      const userMessage = $("#text").val();
-      $("#text").val("");
-      typewriterElement.innerHTML = "";
+  //   recognition.onend = function () {
+  //     lottiePlayer.style.display = "none"; // Hide the Lottie player
+  //     micButton.style.backgroundColor = ""; // Add active class for styling
+  //     recognizing = false;
 
-      fetch("/get", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ msg: userMessage }),
+  // Automatically send the recognized message to the backend
+  //     const userMessage = $("#text").val(); // Get the recognized text
+
+  //     // Clear input after submission
+  //     $("#text").val("");
+
+  //     // Remove previous chatbot response
+  //     typewriterElement.innerHTML = "";
+  //     $("#loading").show();
+
+  //     fetch("/get", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/x-www-form-urlencoded",
+  //       },
+  //       body: new URLSearchParams({ msg: userMessage }),
+  //     })
+  //       .then((response) => response.json())
+  //       .then((data) => {
+  //         const { text, audio_file } = data;
+
+  //         if (audio_file) {
+  //           const audio = new Audio(audio_file);
+  //           audio
+  //             .play()
+  //             .catch((err) => console.error("Audio playback failed:", err));
+  //         }
+  //         typeWriter(text, typewriterElement);
+  //       })
+  //       .catch((error) => {
+  //         const errorText = "Sorry, something went wrong.";
+  //         typeWriter(errorText, typewriterElement);
+  //       })
+  //       .finally(() => {
+  //         // Hide loading indicator after processing is complete
+  //         $("#loading").hide();
+  //       });
+  //   };
+
+  //   recognition.onerror = function (event) {
+  //     console.error("Speech recognition error", event);
+  //     recognizing = false;
+  //     micButton.style.backgroundColor = ""; // Reset color on error
+  //   };
+  // }
+
+  // micButton.addEventListener("click", function () {
+  //   if (recognizing) {
+  //     recognition.stop(); // Stop recording if already recording
+  //   } else {
+  //     recognition.start(); // Start recording
+  //   }
+  // });
+
+  // Text input
+  $("#messageArea").on("submit", function (event) {
+    lottiePlayer.style.display = "none"; // Hide the Lottie player
+
+    $("#loading").show();
+
+    event.preventDefault();
+    const userMessage = $("#text").val();
+    $("#text").val(""); // Clear input after submission
+
+    // Remove previous chatbot response
+    typewriterElement.innerHTML = "";
+
+    fetch("/get", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ msg: userMessage }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        const { text, audio_file } = data;
+
+        if (audio_file) {
+          const audio = new Audio(audio_file);
+          audio
+            .play()
+            .catch((err) => console.error("Audio playback failed:", err));
+        }
+        typeWriter(text, typewriterElement);
       })
-        .then((response) => response.json())
-        .then((data) => {
-          const { text, audio_file } = data;
-          if (audio_file) new Audio(audio_file).play().catch(console.error);
-          typeWriter(text, typewriterElement);
-        })
-        .catch((error) => console.error("Error processing message:", error))
-        .finally(() => $("#loading").hide());
-    });
+      .catch((error) => {
+        const errorText = "Sorry, something went wrong.";
+        typeWriter(errorText, typewriterElement);
+      })
+      .finally(() => {
+        // Hide loading indicator after processing is complete
+        $("#loading").hide();
+      });
   });
 </script>
 
 <style>
   #container {
     width: 90%;
+    height: 90%;
+    overflow: hidden;
     margin: 0 auto;
     background-color: hsla(0, 0%, 100%, 0);
     padding: 20px;
     border-radius: 15px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    z-index: 3;
+    position: relative;
   }
 
+  .chat-content {
+    flex: 1; /* Allow chat-content to grow and fill space */
+    height: auto;
+    max-height: 300px;
+    width: 100%;
+    overflow-y: auto;
+    padding: 15px;
+    background-color: hsla(0, 0%, 100%, 1);
+    border-top-left-radius: 50px;
+    border-top-right-radius: 50px;
+    border-bottom-right-radius: 50px;
+    border-bottom-left-radius: 0px;
+    margin-bottom: 15px;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .chat-response {
+    font-size: 30px;
+    color: #333;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    text-align: center;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
   #loading {
     display: none;
     text-align: center;
     font-size: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+    height: 100%; /* Ensures it takes the full height of the parent */
+    display: flex; /* Use Flexbox */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    flex-direction: column; /* Stack spinner and text vertically */
     color: #ffffff;
   }
 
@@ -178,8 +324,17 @@
   }
 
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  form {
+    margin-top: auto; /* Keeps the input at the bottom */
+    width: 40px;
   }
 </style>
 {% endblock %}
