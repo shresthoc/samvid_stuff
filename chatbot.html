@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% block content %}
+<div
+  id="container"
+  class="d-flex flex-column justify-content-between align-items-center mt-3"
+>
+  <!-- Removed commented-out animation code for readability -->
+
+  <div id="typewriter" class="me-4 ms-4 mt-5" style="font-size: 40px; color: #ffffff"></div>
+  
+  <!-- Robot Animation -->
+  <div class="robot-animation justify-content-center">
+    <lottie-player
+      id="lottiePlayer"
+      src="https://lottie.host/7223d248-bdb2-492e-951f-565c6301be9b/x3YBLonBH0.json"
+      speed="1"
+      style="width: 500px; height: 500px"
+      loop
+      autoplay
+    ></lottie-player>
+  </div>
+  
+  <div id="loading" style="display: none; height: 100%; text-align: center">
+    <div class="loading-spinner"></div>
+    <p>Processing your input...</p>
+  </div>
+
+  <form
+    id="messageArea"
+    class="d-flex align-items-center justify-content-center"
+    style="width: 100%"
+  >
+    <input
+      type="text"
+      id="text"
+      name="msg"
+      placeholder="Type your message or click the mic for voice"
+      autocomplete="off"
+      class="form-control form-control-lg input-box"
+      required
+      style="font-size: 24px; width: 500px; height: 50px; border-radius: 20px; padding: 10px;"
+    />
+    <button
+      type="submit"
+      id="send"
+      class="btn btn-primary rounded-circle ms-2"
+      title="Send Message"
+      style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;"
+    >
+      <i class="fas fa-paper-plane fa-lg"></i>
+    </button>
+    <button
+      type="button"
+      id="mic"
+      class="btn btn-danger rounded-circle ms-2"
+      title="Voice Input"
+      style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;"
+    >
+      <i class="fas fa-microphone text-white fa-lg"></i>
+    </button>
+  </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+  const typewriterElement = document.getElementById("typewriter");
+  const micButton = document.getElementById("mic");
+
+  function typeWriter(text, element, callback) {
+    let responseIndex = 0;
+    element.innerHTML = ""; // Clear the element before typing new response
+    function writeResponse() {
+      if (responseIndex < text.length) {
+        element.innerHTML += text.charAt(responseIndex);
+        responseIndex++;
+        setTimeout(writeResponse, 50);
+      } else if (callback) {
+        callback();
+      }
+    }
+    writeResponse();
+  }
+
+  let exhibitAudio;
+
+  function playExhibitAudio() {
+    exhibitAudio = new Audio(`{{ url_for('static', filename='audio/exhibit.wav') }}`);
+    exhibitAudio.play();
+    document.querySelectorAll("#normal-button").forEach((button) => {
+      button.addEventListener("click", () => exhibitAudio.pause());
+    });
+    exhibitAudio.onended = playQuestionPromptAudio;
+  }
+
+  function playQuestionPromptAudio() {
+    const questionAudio = new Audio(`{{ url_for('static', filename='audio/question_audio.wav') }}`);
+    questionAudio.play();
+    questionAudio.onended = detectWakeWord;
+  }
+
+  function detectWakeWord() {
+    fetch("/detect_wake_word", { method: "POST" })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.action === "stt") {
+          $("#text").val(data.text);
+          $("#messageArea").submit();
+        }
+      })
+      .catch((error) => console.error("Error during voice recognition:", error));
+  }
+
+  $(document).ready(function () {
+    typeWriter("How can I help you?", typewriterElement);
+    playExhibitAudio();
+
+    $("#mic").on("click", function () {
+      fetch("/stt")
+        .then((response) => response.json())
+        .then((data) => {
+          $("#text").val(data.text);
+          $("#messageArea").submit();
+        })
+        .catch((error) => console.error("Error during voice recognition:", error));
+    });
+
+    $("#messageArea").on("submit", function (event) {
+      event.preventDefault();
+      const userMessage = $("#text").val();
+      $("#text").val("");
+      typewriterElement.innerHTML = "";
+
+      fetch("/get", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ msg: userMessage }),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          const { text, audio_file } = data;
+          if (audio_file) new Audio(audio_file).play().catch(console.error);
+          typeWriter(text, typewriterElement);
+        })
+        .catch((error) => console.error("Error processing message:", error))
+        .finally(() => $("#loading").hide());
+    });
+  });
+</script>
+
+<style>
+  #container {
+    width: 90%;
+    margin: 0 auto;
+    background-color: hsla(0, 0%, 100%, 0);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  #loading {
+    display: none;
+    text-align: center;
+    font-size: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    color: #ffffff;
+  }
+
+  .loading-spinner {
+    border: 4px solid rgba(255, 255, 255, 0);
+    border-top: 4px solid #ffffff;
+    border-radius: 50%;
+    width: 200px;
+    height: 200px;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+{% endblock %}
